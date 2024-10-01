@@ -113,6 +113,15 @@ class Sbom(pydantic.BaseModel):
         """Convert a CycloneDX SBOM to an SPDX SBOM."""
         packages = []
         relationships = []
+
+        packages.append(
+            SPDXPackage(
+                name="",
+                versionInfo="",
+                SPDXID="SPDXRef-DocumentRoot-File-",
+            )
+        )
+
         for component in self.components:
             annotations = []
             for prop in component.properties:
@@ -147,10 +156,22 @@ class Sbom(pydantic.BaseModel):
                     annotations=annotations,
                 )
             )
+
+        relationships.append(
+            SPDXRelation(
+                spdxElementId="SPDXRef-DOCUMENT",
+                comment="",
+                relatedSpdxElement="SPDXRef-DocumentRoot-File-",
+                relationshipType="DESCRIBES",
+            )
+        )
+
         for package in packages:
+            if package.SPDXID == "SPDXRef-DocumentRoot-File-":
+                continue
             relationships.append(
                 SPDXRelation(
-                    spdxElementId="SPDXRef-DOCUMENT",
+                    spdxElementId="SPDXRef-DocumentRoot-File-",
                     comment="",
                     relatedSpdxElement=package.SPDXID,
                     relationshipType="CONTAINS",
