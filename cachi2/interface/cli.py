@@ -7,7 +7,7 @@ import shutil
 import sys
 from itertools import chain
 from pathlib import Path
-from typing import Any, Callable, List, Optional, Union, cast
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
 import pydantic
 import typer
@@ -18,7 +18,7 @@ from cachi2.core.extras.envfile import EnvFormat, generate_envfile
 from cachi2.core.models.input import Flag, PackageInput, Request, parse_user_input
 from cachi2.core.models.output import BuildConfig
 from cachi2.core.models.property_semantics import merge_component_properties
-from cachi2.core.models.sbom import Sbom, SPDXSbom
+from cachi2.core.models.sbom import Sbom, SPDXPackage, SPDXRelation, SPDXSbom
 from cachi2.core.resolver import inject_files_post, resolve_packages, supported_package_managers
 from cachi2.core.rooted_path import RootedPath
 from cachi2.interface.logging import LogLevel, setup_logging
@@ -405,6 +405,94 @@ def _prevalidate_sbom_files_args(sbom_files_to_merge: Paths) -> Paths:
     return all_files_are_jsons(enough_files_for_merge(list(set(sbom_files_to_merge))))
 
 
+def merge_relationships(
+    relationships_list: List[List[SPDXRelation]], doc_ids: List[str], packages: List[SPDXPackage]
+) -> List[SPDXRelation]:
+    """Merge SPDX relationships.
+
+    Function takes two relationsships lists and unified list of packages.
+    For relationhips lists, map and inverse map of relations is created. SPDX document usually
+    contains virtual package which serves as "envelope" for all real packages. These virtual
+    packages are search in the relationsships and thier ID is stored as middle element.
+    """
+
+    def map_relationships(
+        relationships: List[SPDXRelation],
+    ) -> Tuple[Optional[str], Dict[str, List[str]], Dict[str, str]]:
+        relations_map: Dict[str, List[str]] = {}
+        inverse_map: Dict[str, str] = {}
+
+        for rel in relationships:
+            spdx_id, related_spdx = rel.spdxElementId, rel.relatedSpdxElement
+            relations_map.setdefault(spdx_id, []).append(related_spdx)
+            inverse_map[related_spdx] = spdx_id
+
+        root_element = next((k for k in relations_map if k not in inverse_map), None)
+        return root_element, relations_map, inverse_map
+
+    package_ids = {pkg.SPDXID for pkg in packages}
+    root_ids = []
+    maps = []
+    inv_maps = []
+    middles = []
+    for relationships, doc_id in zip(relationships_list, doc_ids):
+        root, _map, inv_map = map_relationships(relationships)
+        maps.append(_map)
+        inv_maps.append(inv_map)
+        if not root:
+            root = doc_id
+        root_ids.append(root)
+
+    for _map, _inv_map, root_id in zip(maps, inv_maps, root_ids):
+        middle = next((r for r, c in _map.items() if _inv_map.get(r) == root_id), None)
+        middles.append(middle)
+
+    merged_relationships = []
+
+    def process_relation(
+        rel: SPDXRelation,
+        root_main: Optional[str],
+        root_other: Optional[str],
+        middle_main: str,
+        middle_other: Optional[str],
+    ) -> None:
+        new_rel = SPDXRelation(
+            spdxElementId=root_main if rel.spdxElementId == root_other else rel.spdxElementId,
+            relatedSpdxElement=(
+                root_main if rel.relatedSpdxElement == root_other else rel.relatedSpdxElement
+            ),
+            relationshipType=rel.relationshipType,
+        )
+        if new_rel.spdxElementId == middle_other:
+            new_rel.spdxElementId = middle_main
+        if new_rel.spdxElementId in package_ids or new_rel.relatedSpdxElement in package_ids:
+            merged_relationships.append(new_rel)
+
+    middle_main = middles[0]
+    if not middle_main:
+        packages.append(
+            SPDXPackage(
+                SPDXID="SPDXRef-DocumentRoot-File-",
+                packages=[],
+                name="",
+            )
+        )
+        middle_main = "SPDXRef-DocumentRoot-File-"
+
+    root_main = root_ids[0]
+
+    for relationships, root_id, middle in zip(relationships_list, root_ids, middles):
+        for rel in relationships:
+            process_relation(rel, root_main, root_id, middle_main, middle)
+
+    for middle in middles[1:]:
+        middle_packages: List[Optional[SPDXPackage]] = [x for x in packages if x.SPDXID == middle]
+        middle_package: Optional[SPDXPackage] = (middle_packages or [None])[0]
+        if middle_package:
+            packages.pop(packages.index(middle_package))
+    return merged_relationships
+
+
 @app.command()
 @handle_errors
 def merge_sboms(
@@ -473,7 +561,12 @@ def merge_sboms(
             dataLicense="CC0-1.0",
             name=sbom_name or cast(SPDXSbom, spdx_sboms_to_merge[0]).name,
             creationInfo=cast(SPDXSbom, spdx_sboms_to_merge[0]).creationInfo,
-            packages=packages,
+            packages=[],
+        )
+        sbom.packages = list(packages)
+        root_ids: List[str] = [s.SPDXID for s in spdx_sboms_to_merge]
+        sbom.relationships = merge_relationships(
+            [s.relationships for s in spdx_sboms_to_merge], root_ids, sbom.packages
         )
 
     sbom_json = sbom.model_dump_json(indent=2, by_alias=True, exclude_none=True)

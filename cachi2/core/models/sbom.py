@@ -377,16 +377,22 @@ class SPDXSbom(pydantic.BaseModel):
         """
         unique_items = {}
         for item in items:
-            key = (item.name, item.versionInfo)
-            if key not in unique_items:
-                unique_items[key] = SPDXPackage(
+            key1 = (item.name, item.versionInfo)
+            key2 = (item.name, None)
+            key3 = (item.name, "")
+            if key1 not in unique_items and key2 not in unique_items and key3 not in unique_items:
+                unique_items[key1] = SPDXPackage(
                     SPDXID=item.SPDXID, name=item.name, versionInfo=item.versionInfo
                 )
-                unique_items[key].externalRefs = item.externalRefs[:]
-                unique_items[key].annotations = item.annotations[:]
+                unique_items[key1].externalRefs = item.externalRefs[:]
+                unique_items[key1].annotations = item.annotations[:]
             else:
-                unique_items[key].externalRefs.extend(item.externalRefs)
-                unique_items[key].annotations.extend(item.annotations)
+                existing_key = (
+                    key1 if key1 in unique_items else key2 if key2 in unique_items else key3
+                )
+
+                unique_items[existing_key].externalRefs.extend(item.externalRefs)
+                unique_items[existing_key].annotations.extend(item.annotations)
 
         for item in unique_items.values():
             item.externalRefs = sorted(
@@ -444,6 +450,8 @@ class SPDXSbom(pydantic.BaseModel):
                 )
         tools = []
         name, vendor = None, None
+        # Following approach is used as position of "Organization" and "Tool" is not
+        # guaranteed by the standard
         for creator in self.creationInfo.creators:
             if creator.startswith("Organization:"):
                 vendor = creator.replace("Organization:", "").strip()
