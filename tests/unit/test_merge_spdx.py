@@ -19,6 +19,10 @@ from cachi2.interface.cli import merge_relationships
             "./tests/unit/data/sboms/cachi2.bom.spdx.json",
             "./tests/unit/data/sboms/syft.bom.spdx.json",
         ],
+        [
+            "./tests/unit/data/sboms/syft.bom.spdx.json",
+            "./tests/unit/data/sboms/cachi2.bom.spdx.json",
+        ],
     ],
 )
 def test_merge_spdx_relationships(
@@ -45,6 +49,12 @@ def test_merge_spdx_relationships(
     relationships_to_merge = [s.relationships for s in sboms_to_merge]
     merged = merge_relationships(relationships_to_merge, doc_ids, packages)
     assert merged == [
+        SPDXRelation(
+            spdxElementId="SPDXRef-DOCUMENT",
+            comment=None,
+            relatedSpdxElement="SPDXRef-DocumentRoot-File-",
+            relationshipType="DESCRIBES",
+        ),
         SPDXRelation(
             spdxElementId="SPDXRef-DocumentRoot-File-",
             comment=None,
@@ -119,46 +129,22 @@ def test_merge_spdx_relationships(
             relationshipType="CONTAINS",
         ),
     ]
-    assert packages == [
+    assert sorted(packages) == [
         SPDXPackage(
-            SPDXID="SPDXRef-Package-python-PyYAML-696696f5e92f1b5e",
-            name="PyYAML",
-            versionInfo="6.0",
-            externalRefs=[
-                SPDXPackageExternalRefPackageManagerPURL(
-                    referenceLocator="pkg:pypi/pyyaml@6.0",
-                    referenceType="purl",
-                    referenceCategory="PACKAGE-MANAGER",
-                )
-            ],
-            annotations=[],
-        ),
-        SPDXPackage(
-            SPDXID="SPDXRef-Package-python-aiowsgi-78716bdabf6daae1",
-            name="aiowsgi",
-            versionInfo="0.8",
-            externalRefs=[
-                SPDXPackageExternalRefPackageManagerPURL(
-                    referenceLocator="pkg:pypi/aiowsgi@0.8",
-                    referenceType="purl",
-                    referenceCategory="PACKAGE-MANAGER",
-                )
-            ],
-            annotations=[],
-        ),
-        SPDXPackage(
-            SPDXID="SPDXRef-Package-python-appr-d869da81f0adbece",
-            name="appr",
+            SPDXID="SPDXRef-Package-go-module-.-terminaltor-1b79094a8c283d88",
+            name="./terminaltor",
             versionInfo=None,
             externalRefs=[
                 SPDXPackageExternalRefPackageManagerPURL(
-                    referenceLocator="pkg:pypi/appr?checksum=sha256:ee6a0a38bed8cff46a56"
-                    "2ed3620bc453141a02262ab0c8dd055824af2829ee5c&download_url="
-                    "https://github.com/quay/appr/archive/37ff9a487a54ad41b59855ecd76e"
-                    "e092fe206a84.zip",
+                    referenceLocator="pkg:golang/./terminaltor",
                     referenceType="purl",
                     referenceCategory="PACKAGE-MANAGER",
-                )
+                ),
+                SPDXPackageExternalRefPackageManagerPURL(
+                    referenceLocator="pkg:golang/./terminaltor@(devel)",
+                    referenceType="purl",
+                    referenceCategory="PACKAGE-MANAGER",
+                ),
             ],
             annotations=[],
         ),
@@ -176,29 +162,12 @@ def test_merge_spdx_relationships(
             annotations=[],
         ),
         SPDXPackage(
-            SPDXID="SPDXRef-Package-python-cachi2-865cdb2c6f0ff5c5",
-            name="cachi2",
-            versionInfo="0.0.1",
+            SPDXID="SPDXRef-Package-go-module-code.gitea.io-sdk-gitea-3172f131171fcbf8",
+            name="code.gitea.io/sdk/gitea",
+            versionInfo="v0.15.1",
             externalRefs=[
                 SPDXPackageExternalRefPackageManagerPURL(
-                    referenceLocator="pkg:pypi/cachi2@0.0.1?vcs_url="
-                    "git%2Bssh://git%40github.com/containerbuildsystem/cachi2%40fc0d6079"
-                    "c2dc9b2a491c0848e550ad3509986110",
-                    referenceType="purl",
-                    referenceCategory="PACKAGE-MANAGER",
-                )
-            ],
-            annotations=[],
-        ),
-        SPDXPackage(
-            SPDXID="SPDXRef-Package-npm-cachito-npm-without-deps-563e3658e3eb288e",
-            name="cachito-npm-without-deps",
-            versionInfo=None,
-            externalRefs=[
-                SPDXPackageExternalRefPackageManagerPURL(
-                    referenceLocator="pkg:npm/cachito-npm-without-deps?vcs_url=git%2"
-                    "Bhttps://github.com/cachito-testing/cachito-npm-without-deps.git"
-                    "%402f0ce1d7b1f8b35572d919428b965285a69583f6",
+                    referenceLocator="pkg:golang/code.gitea.io/sdk/gitea@v0.15.1",
                     referenceType="purl",
                     referenceCategory="PACKAGE-MANAGER",
                 )
@@ -212,23 +181,6 @@ def test_merge_spdx_relationships(
             externalRefs=[
                 SPDXPackageExternalRefPackageManagerPURL(
                     referenceLocator="pkg:golang/code.gitea.io/sdk/gitea@v0.15.1?type=module",
-                    referenceType="purl",
-                    referenceCategory="PACKAGE-MANAGER",
-                )
-            ],
-            annotations=[],
-        ),
-        SPDXPackage(
-            SPDXID="SPDXRef-Package-npm-fecha-874399c7dda48850",
-            name="fecha",
-            versionInfo=None,
-            externalRefs=[
-                SPDXPackageExternalRefPackageManagerPURL(
-                    referenceLocator="pkg:npm/fecha?checksum=sha512:8ae71e98d68e38e1f6e"
-                    "4c629187684dd85e4dc96647c7219b1dd189598ea52865e947f0ad94a7001fa8fb"
-                    "5eccf58467fe34ad10066e831af3374120134604bd5&download_url=https://g"
-                    "ithub.com/taylorhakes/fecha/archive/91680e4db1415fea33eac878cfd889"
-                    "c80a7b55c7.tar.gz",
                     referenceType="purl",
                     referenceCategory="PACKAGE-MANAGER",
                 )
@@ -251,13 +203,12 @@ def test_merge_spdx_relationships(
             annotations=[],
         ),
         SPDXPackage(
-            SPDXID="SPDXRef-Package-go-module-github.com-docker-cli-ea403731821a081e",
+            SPDXID="SPDXRef-Package-go-module-github.com-docker-cli-1671a7feec4073fe",
             name="github.com/docker/cli",
             versionInfo="v23.0.0-rc.3+incompatible",
             externalRefs=[
                 SPDXPackageExternalRefPackageManagerPURL(
-                    referenceLocator="pkg:golang/github.com/docker/cli@v23.0.0-rc.3%2Binc"
-                    "ompatible?type=module",
+                    referenceLocator="pkg:golang/github.com/docker/cli@v23.0.0-rc.3+incompatible",
                     referenceType="purl",
                     referenceCategory="PACKAGE-MANAGER",
                 )
@@ -272,6 +223,34 @@ def test_merge_spdx_relationships(
                 SPDXPackageExternalRefPackageManagerPURL(
                     referenceLocator="pkg:golang/github.com/docker/cli/cli/config@v23.0.0-rc."
                     "3%2Bincompatible?type=package",
+                    referenceType="purl",
+                    referenceCategory="PACKAGE-MANAGER",
+                )
+            ],
+            annotations=[],
+        ),
+        SPDXPackage(
+            SPDXID="SPDXRef-Package-go-module-github.com-docker-cli-ea403731821a081e",
+            name="github.com/docker/cli",
+            versionInfo="v23.0.0-rc.3+incompatible",
+            externalRefs=[
+                SPDXPackageExternalRefPackageManagerPURL(
+                    referenceLocator="pkg:golang/github.com/docker/cli@v23.0.0-rc.3%2Binc"
+                    "ompatible?type=module",
+                    referenceType="purl",
+                    referenceCategory="PACKAGE-MANAGER",
+                )
+            ],
+            annotations=[],
+        ),
+        SPDXPackage(
+            SPDXID="SPDXRef-Package-go-module-github.com-redhat-appstudio-build-"
+            "service-5719506d15c0a3dd",
+            name="github.com/redhat-appstudio/build-service",
+            versionInfo="(devel)",
+            externalRefs=[
+                SPDXPackageExternalRefPackageManagerPURL(
+                    referenceLocator="pkg:golang/github.com/redhat-appstudio/build-service@(devel)",
                     referenceType="purl",
                     referenceCategory="PACKAGE-MANAGER",
                 )
@@ -308,6 +287,19 @@ def test_merge_spdx_relationships(
             annotations=[],
         ),
         SPDXPackage(
+            SPDXID="SPDXRef-Package-go-module-knative.dev-pkg-8ce424e944b2a02f",
+            name="knative.dev/pkg",
+            versionInfo="v0.0.0-20230125083639-408ad0773f47",
+            externalRefs=[
+                SPDXPackageExternalRefPackageManagerPURL(
+                    referenceLocator="pkg:golang/knative.dev/pkg@v0.0.0-20230125083639-408ad0773f47",
+                    referenceType="purl",
+                    referenceCategory="PACKAGE-MANAGER",
+                )
+            ],
+            annotations=[],
+        ),
+        SPDXPackage(
             SPDXID="SPDXRef-Package-go-module-knative.dev-pkg-metrics-c613be23287c5dc4",
             name="knative.dev/pkg/metrics",
             versionInfo="v0.0.0-20230125083639-408ad0773f47",
@@ -322,14 +314,14 @@ def test_merge_spdx_relationships(
             annotations=[],
         ),
         SPDXPackage(
-            SPDXID="SPDXRef-Package-python-test-package-cachi2-bdec7caf7aac75f3",
-            name="test_package_cachi2",
-            versionInfo="1.0.0",
+            SPDXID="SPDXRef-Package-npm-cachito-npm-without-deps-563e3658e3eb288e",
+            name="cachito-npm-without-deps",
+            versionInfo=None,
             externalRefs=[
                 SPDXPackageExternalRefPackageManagerPURL(
-                    referenceLocator="pkg:pypi/test-package-cachi2@1.0.0?vcs_url=git%2B"
-                    "ssh://git%40github.com/brunoapimentel/pip-e2e-test.git%40294df352deed83"
-                    "5cf703ae8a799926418ae5fd3b",
+                    referenceLocator="pkg:npm/cachito-npm-without-deps?vcs_url=git%2"
+                    "Bhttps://github.com/cachito-testing/cachito-npm-without-deps.git"
+                    "%402f0ce1d7b1f8b35572d919428b965285a69583f6",
                     referenceType="purl",
                     referenceCategory="PACKAGE-MANAGER",
                 )
@@ -337,20 +329,50 @@ def test_merge_spdx_relationships(
             annotations=[],
         ),
         SPDXPackage(
-            SPDXID="SPDXRef-Package-go-module-.-terminaltor-1b79094a8c283d88",
-            name="./terminaltor",
+            SPDXID="SPDXRef-Package-npm-cachito-npm-without-deps-72138119b55a065d",
+            name="cachito-npm-without-deps",
+            versionInfo="git+https://github.com/cachito-testing/cachito-npm-without-deps."
+            "git#2f0ce1d7b1f8b35572d919428b965285a69583f6",
+            externalRefs=[
+                SPDXPackageExternalRefPackageManagerPURL(
+                    referenceLocator="pkg:npm/cachito-npm-without-deps@git+https://github.com/"
+                    "cachito-testing/cachito-npm-without-deps.git%232f0ce1d7b1f8b35572d919428b"
+                    "965285a69583f6",
+                    referenceType="purl",
+                    referenceCategory="PACKAGE-MANAGER",
+                )
+            ],
+            annotations=[],
+        ),
+        SPDXPackage(
+            SPDXID="SPDXRef-Package-npm-fecha-874399c7dda48850",
+            name="fecha",
             versionInfo=None,
             externalRefs=[
                 SPDXPackageExternalRefPackageManagerPURL(
-                    referenceLocator="pkg:golang/./terminaltor",
+                    referenceLocator="pkg:npm/fecha?checksum=sha512:8ae71e98d68e38e1f6e"
+                    "4c629187684dd85e4dc96647c7219b1dd189598ea52865e947f0ad94a7001fa8fb"
+                    "5eccf58467fe34ad10066e831af3374120134604bd5&download_url=https://g"
+                    "ithub.com/taylorhakes/fecha/archive/91680e4db1415fea33eac878cfd889"
+                    "c80a7b55c7.tar.gz",
                     referenceType="purl",
                     referenceCategory="PACKAGE-MANAGER",
-                ),
+                )
+            ],
+            annotations=[],
+        ),
+        SPDXPackage(
+            SPDXID="SPDXRef-Package-npm-fecha-ff4ad17b28d08441",
+            name="fecha",
+            versionInfo="https://github.com/taylorhakes/fecha/archive/91680e4db1415fea3"
+            "3eac878cfd889c80a7b55c7.tar.gz",
+            externalRefs=[
                 SPDXPackageExternalRefPackageManagerPURL(
-                    referenceLocator="pkg:golang/./terminaltor@(devel)",
+                    referenceLocator="pkg:npm/fecha@https://github.com/taylorhakes/fecha/"
+                    "archive/91680e4db1415fea33eac878cfd889c80a7b55c7.tar.gz",
                     referenceType="purl",
                     referenceCategory="PACKAGE-MANAGER",
-                ),
+                )
             ],
             annotations=[],
         ),
@@ -361,6 +383,32 @@ def test_merge_spdx_relationships(
             externalRefs=[
                 SPDXPackageExternalRefPackageManagerPURL(
                     referenceLocator="pkg:pypi/PyYAML@6.0",
+                    referenceType="purl",
+                    referenceCategory="PACKAGE-MANAGER",
+                )
+            ],
+            annotations=[],
+        ),
+        SPDXPackage(
+            SPDXID="SPDXRef-Package-python-PyYAML-696696f5e92f1b5e",
+            name="PyYAML",
+            versionInfo="6.0",
+            externalRefs=[
+                SPDXPackageExternalRefPackageManagerPURL(
+                    referenceLocator="pkg:pypi/pyyaml@6.0",
+                    referenceType="purl",
+                    referenceCategory="PACKAGE-MANAGER",
+                )
+            ],
+            annotations=[],
+        ),
+        SPDXPackage(
+            SPDXID="SPDXRef-Package-python-aiowsgi-78716bdabf6daae1",
+            name="aiowsgi",
+            versionInfo="0.8",
+            externalRefs=[
+                SPDXPackageExternalRefPackageManagerPURL(
+                    referenceLocator="pkg:pypi/aiowsgi@0.8",
                     referenceType="purl",
                     referenceCategory="PACKAGE-MANAGER",
                 )
@@ -394,13 +442,15 @@ def test_merge_spdx_relationships(
             annotations=[],
         ),
         SPDXPackage(
-            SPDXID="SPDXRef-Package-rpm-bash-1a6619bdab5f8a2d",
-            name="bash",
-            versionInfo="4.4.20-4.el8_6",
+            SPDXID="SPDXRef-Package-python-appr-d869da81f0adbece",
+            name="appr",
+            versionInfo=None,
             externalRefs=[
                 SPDXPackageExternalRefPackageManagerPURL(
-                    referenceLocator="pkg:rpm/rhel/bash@4.4.20-4.el8_6?arch=x86_64&upstream="
-                    "bash-4.4.20-4.el8_6.src.rpm&distro=rhel-8.7",
+                    referenceLocator="pkg:pypi/appr?checksum=sha256:ee6a0a38bed8cff46a56"
+                    "2ed3620bc453141a02262ab0c8dd055824af2829ee5c&download_url="
+                    "https://github.com/quay/appr/archive/37ff9a487a54ad41b59855ecd76e"
+                    "e092fe206a84.zip",
                     referenceType="purl",
                     referenceCategory="PACKAGE-MANAGER",
                 )
@@ -421,15 +471,14 @@ def test_merge_spdx_relationships(
             annotations=[],
         ),
         SPDXPackage(
-            SPDXID="SPDXRef-Package-npm-cachito-npm-without-deps-72138119b55a065d",
-            name="cachito-npm-without-deps",
-            versionInfo="git+https://github.com/cachito-testing/cachito-npm-without-deps."
-            "git#2f0ce1d7b1f8b35572d919428b965285a69583f6",
+            SPDXID="SPDXRef-Package-python-cachi2-865cdb2c6f0ff5c5",
+            name="cachi2",
+            versionInfo="0.0.1",
             externalRefs=[
                 SPDXPackageExternalRefPackageManagerPURL(
-                    referenceLocator="pkg:npm/cachito-npm-without-deps@git+https://github.com/"
-                    "cachito-testing/cachito-npm-without-deps.git%232f0ce1d7b1f8b35572d919428b"
-                    "965285a69583f6",
+                    referenceLocator="pkg:pypi/cachi2@0.0.1?vcs_url="
+                    "git%2Bssh://git%40github.com/containerbuildsystem/cachi2%40fc0d6079"
+                    "c2dc9b2a491c0848e550ad3509986110",
                     referenceType="purl",
                     referenceCategory="PACKAGE-MANAGER",
                 )
@@ -437,12 +486,14 @@ def test_merge_spdx_relationships(
             annotations=[],
         ),
         SPDXPackage(
-            SPDXID="SPDXRef-Package-go-module-code.gitea.io-sdk-gitea-3172f131171fcbf8",
-            name="code.gitea.io/sdk/gitea",
-            versionInfo="v0.15.1",
+            SPDXID="SPDXRef-Package-python-test-package-cachi2-bdec7caf7aac75f3",
+            name="test_package_cachi2",
+            versionInfo="1.0.0",
             externalRefs=[
                 SPDXPackageExternalRefPackageManagerPURL(
-                    referenceLocator="pkg:golang/code.gitea.io/sdk/gitea@v0.15.1",
+                    referenceLocator="pkg:pypi/test-package-cachi2@1.0.0?vcs_url=git%2B"
+                    "ssh://git%40github.com/brunoapimentel/pip-e2e-test.git%40294df352deed83"
+                    "5cf703ae8a799926418ae5fd3b",
                     referenceType="purl",
                     referenceCategory="PACKAGE-MANAGER",
                 )
@@ -450,54 +501,13 @@ def test_merge_spdx_relationships(
             annotations=[],
         ),
         SPDXPackage(
-            SPDXID="SPDXRef-Package-npm-fecha-ff4ad17b28d08441",
-            name="fecha",
-            versionInfo="https://github.com/taylorhakes/fecha/archive/91680e4db1415fea3"
-            "3eac878cfd889c80a7b55c7.tar.gz",
+            SPDXID="SPDXRef-Package-rpm-bash-1a6619bdab5f8a2d",
+            name="bash",
+            versionInfo="4.4.20-4.el8_6",
             externalRefs=[
                 SPDXPackageExternalRefPackageManagerPURL(
-                    referenceLocator="pkg:npm/fecha@https://github.com/taylorhakes/fecha/"
-                    "archive/91680e4db1415fea33eac878cfd889c80a7b55c7.tar.gz",
-                    referenceType="purl",
-                    referenceCategory="PACKAGE-MANAGER",
-                )
-            ],
-            annotations=[],
-        ),
-        SPDXPackage(
-            SPDXID="SPDXRef-Package-go-module-github.com-docker-cli-1671a7feec4073fe",
-            name="github.com/docker/cli",
-            versionInfo="v23.0.0-rc.3+incompatible",
-            externalRefs=[
-                SPDXPackageExternalRefPackageManagerPURL(
-                    referenceLocator="pkg:golang/github.com/docker/cli@v23.0.0-rc.3+incompatible",
-                    referenceType="purl",
-                    referenceCategory="PACKAGE-MANAGER",
-                )
-            ],
-            annotations=[],
-        ),
-        SPDXPackage(
-            SPDXID="SPDXRef-Package-go-module-github.com-redhat-appstudio-build-"
-            "service-5719506d15c0a3dd",
-            name="github.com/redhat-appstudio/build-service",
-            versionInfo="(devel)",
-            externalRefs=[
-                SPDXPackageExternalRefPackageManagerPURL(
-                    referenceLocator="pkg:golang/github.com/redhat-appstudio/build-service@(devel)",
-                    referenceType="purl",
-                    referenceCategory="PACKAGE-MANAGER",
-                )
-            ],
-            annotations=[],
-        ),
-        SPDXPackage(
-            SPDXID="SPDXRef-Package-go-module-knative.dev-pkg-8ce424e944b2a02f",
-            name="knative.dev/pkg",
-            versionInfo="v0.0.0-20230125083639-408ad0773f47",
-            externalRefs=[
-                SPDXPackageExternalRefPackageManagerPURL(
-                    referenceLocator="pkg:golang/knative.dev/pkg@v0.0.0-20230125083639-408ad0773f47",
+                    referenceLocator="pkg:rpm/rhel/bash@4.4.20-4.el8_6?arch=x86_64&upstream="
+                    "bash-4.4.20-4.el8_6.src.rpm&distro=rhel-8.7",
                     referenceType="purl",
                     referenceCategory="PACKAGE-MANAGER",
                 )

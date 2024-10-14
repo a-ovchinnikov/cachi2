@@ -477,6 +477,13 @@ def merge_relationships(
             )
         )
         envelope_main = "SPDXRef-DocumentRoot-File-"
+    merged_relationships.append(
+        SPDXRelation(
+            spdxElementId=root_ids[0],
+            relatedSpdxElement="SPDXRef-DocumentRoot-File-",
+            relationshipType="DESCRIBES",
+        )
+    )
 
     root_main = root_ids[0]
 

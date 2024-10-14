@@ -289,6 +289,9 @@ class SPDXPackage(pydantic.BaseModel):
     externalRefs: list[SPDXPackageExternalRefType] = []
     annotations: list[SPDXPackageAnnotation] = []
 
+    def __lt__(self, other: "SPDXPackage") -> bool:
+        return (self.SPDXID or "") < (other.SPDXID or "")
+
     @staticmethod
     def _calculate_package_hash_from_dict(package_dict: Dict[str, Any]) -> str:
         return hashlib.sha256(json.dumps(package_dict, sort_keys=True).encode()).hexdigest()
