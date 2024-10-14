@@ -410,10 +410,10 @@ def merge_relationships(
 ) -> List[SPDXRelation]:
     """Merge SPDX relationships.
 
-    Function takes two relationsships lists and unified list of packages.
-    For relationhips lists, map and inverse map of relations is created. SPDX document usually
+    Function takes relationships lists and unified list of packages.
+    For relationhips lists, map and inverse map of relations are created. SPDX document usually
     contains virtual package which serves as "envelope" for all real packages. These virtual
-    packages are search in the relationsships and thier ID is stored as middle element.
+    packages are searched in the relationships and their ID is stored as middle element.
     """
 
     def map_relationships(
@@ -434,7 +434,7 @@ def merge_relationships(
     root_ids = []
     maps = []
     inv_maps = []
-    middles = []
+    envelopes = []
     for relationships, doc_id in zip(relationships_list, doc_ids):
         root, _map, inv_map = map_relationships(relationships)
         maps.append(_map)
@@ -444,8 +444,8 @@ def merge_relationships(
         root_ids.append(root)
 
     for _map, _inv_map, root_id in zip(maps, inv_maps, root_ids):
-        middle = next((r for r, c in _map.items() if _inv_map.get(r) == root_id), None)
-        middles.append(middle)
+        envelope = next((r for r, c in _map.items() if _inv_map.get(r) == root_id), None)
+        envelopes.append(envelope)
 
     merged_relationships = []
 
@@ -453,8 +453,8 @@ def merge_relationships(
         rel: SPDXRelation,
         root_main: Optional[str],
         root_other: Optional[str],
-        middle_main: str,
-        middle_other: Optional[str],
+        envelope_main: str,
+        envelope_other: Optional[str],
     ) -> None:
         new_rel = SPDXRelation(
             spdxElementId=root_main if rel.spdxElementId == root_other else rel.spdxElementId,
@@ -463,13 +463,13 @@ def merge_relationships(
             ),
             relationshipType=rel.relationshipType,
         )
-        if new_rel.spdxElementId == middle_other:
-            new_rel.spdxElementId = middle_main
+        if new_rel.spdxElementId == envelope_other:
+            new_rel.spdxElementId = envelope_main
         if new_rel.spdxElementId in package_ids or new_rel.relatedSpdxElement in package_ids:
             merged_relationships.append(new_rel)
 
-    middle_main = middles[0]
-    if not middle_main:
+    envelope_main = envelopes[0]
+    if not envelope_main:
         packages.append(
             SPDXPackage(
                 SPDXID="SPDXRef-DocumentRoot-File-",
@@ -477,19 +477,21 @@ def merge_relationships(
                 name="",
             )
         )
-        middle_main = "SPDXRef-DocumentRoot-File-"
+        envelope_main = "SPDXRef-DocumentRoot-File-"
 
     root_main = root_ids[0]
 
-    for relationships, root_id, middle in zip(relationships_list, root_ids, middles):
+    for relationships, root_id, envelope in zip(relationships_list, root_ids, envelopes):
         for rel in relationships:
-            process_relation(rel, root_main, root_id, middle_main, middle)
+            process_relation(rel, root_main, root_id, envelope_main, envelope)
 
-    for middle in middles[1:]:
-        middle_packages: List[Optional[SPDXPackage]] = [x for x in packages if x.SPDXID == middle]
-        middle_package: Optional[SPDXPackage] = (middle_packages or [None])[0]
-        if middle_package:
-            packages.pop(packages.index(middle_package))
+    for envelope in envelopes[1:]:
+        envelope_packages: List[Optional[SPDXPackage]] = [
+            x for x in packages if x.SPDXID == envelope
+        ]
+        envelope_package: Optional[SPDXPackage] = (envelope_packages or [None])[0]
+        if envelope_package:
+            packages.pop(packages.index(envelope_package))
     return merged_relationships
 
 
