@@ -473,7 +473,6 @@ def merge_relationships(
         packages.append(
             SPDXPackage(
                 SPDXID="SPDXRef-DocumentRoot-File-",
-                packages=[],
                 name="",
             )
         )
