@@ -407,7 +407,7 @@ def _prevalidate_sbom_files_args(sbom_files_to_merge: Paths) -> Paths:
 
 def merge_relationships(
     relationships_list: List[List[SPDXRelation]], doc_ids: List[str], packages: List[SPDXPackage]
-) -> List[SPDXRelation]:
+) -> Tuple[List[SPDXRelation], List[SPDXPackage]]:
     """Merge SPDX relationships.
 
     Function takes relationships lists and unified list of packages.
@@ -431,6 +431,7 @@ def merge_relationships(
         return root_element, relations_map, inverse_map
 
     package_ids = {pkg.SPDXID for pkg in packages}
+    _packages = packages[:]
     root_ids = []
     maps = []
     inv_maps = []
@@ -470,7 +471,7 @@ def merge_relationships(
 
     envelope_main = envelopes[0]
     if not envelope_main:
-        packages.append(
+        _packages.append(
             SPDXPackage(
                 SPDXID="SPDXRef-DocumentRoot-File-",
                 name="",
@@ -493,12 +494,12 @@ def merge_relationships(
 
     for envelope in envelopes[1:]:
         envelope_packages: List[Optional[SPDXPackage]] = [
-            x for x in packages if x.SPDXID == envelope
+            x for x in _packages if x.SPDXID == envelope
         ]
         envelope_package: Optional[SPDXPackage] = (envelope_packages or [None])[0]
         if envelope_package:
-            packages.pop(packages.index(envelope_package))
-    return merged_relationships
+            _packages.pop(_packages.index(envelope_package))
+    return merged_relationships, _packages
 
 
 @app.command()
@@ -573,7 +574,7 @@ def merge_sboms(
         )
         sbom.packages = list(packages)
         root_ids: List[str] = [s.SPDXID for s in spdx_sboms_to_merge]
-        sbom.relationships = merge_relationships(
+        sbom.relationships, sbom.packages = merge_relationships(
             [s.relationships for s in spdx_sboms_to_merge], root_ids, sbom.packages
         )
 

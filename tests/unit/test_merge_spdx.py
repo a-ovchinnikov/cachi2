@@ -47,7 +47,7 @@ def test_merge_spdx_relationships(
 
     doc_ids = cast(list[str], [s.SPDXID for s in sboms_to_merge])
     relationships_to_merge = [s.relationships for s in sboms_to_merge]
-    merged = merge_relationships(relationships_to_merge, doc_ids, packages)
+    merged, packages = merge_relationships(relationships_to_merge, doc_ids, packages)
     assert merged == [
         SPDXRelation(
             spdxElementId="SPDXRef-DOCUMENT",
