@@ -105,9 +105,6 @@ class PropertySet:
         )
 
 
-def merge_two_relationships(rel1, rel2):
-    pass
-
 def merge_relationships(sboms_to_merge) -> Tuple[List[SPDXRelation], List[SPDXPackage]]:
     """Merge SPDX relationships.
 
@@ -116,46 +113,6 @@ def merge_relationships(sboms_to_merge) -> Tuple[List[SPDXRelation], List[SPDXPa
     contains virtual package which serves as "envelope" for all real packages. These virtual
     packages are searched in the relationships and their ID is stored as middle element.
     """
-
-    # None of these entities are actually used outside of the function.
-    # It is safe to mutate them.
-    doc_ids: List[str] = [s.SPDXID for s in sboms_to_merge]
-    _packages = list(chain.from_iterable(s.packages for s in sboms_to_merge))
-    relationships_list = [s.relationships for s in sboms_to_merge]
-
-    def create_direct_and_inverse_relationshipos_maps(
-        relationships: List[SPDXRelation],
-    ) -> Tuple[Optional[str], Dict[str, List[str]], Dict[str, str]]:
-        direct_map: Dict[str, List[str]] = defaultdict(list)
-        inverse_map: Dict[str, str] = {}
-
-        for rel in relationships:
-            spdx_id, related_spdx = rel.spdxElementId, rel.relatedSpdxElement
-            direct_map[spdx_id].append(related_spdx)
-            inverse_map[related_spdx] = spdx_id
-        return direct_map, inverse_map
-
-    def find_root(direct_map, inverse_map, doc_id=None):
-        # A root is either an element that no other element is related to
-        # or a document id as a fallback:
-        return next((spdx_id for spdx_id in direct_map if spdx_id not in inverse_map), doc_id)
-
-    package_ids = {pkg.SPDXID for pkg in _packages}
-    # this is a terrible name, but I don't want to overspend on it ATM.
-    preprocessed_sbom_data = []
-    for relationships, doc_id in zip(relationships_list, doc_ids):
-        dir_map, inv_map = create_direct_and_inverse_relationshipos_maps(relationships)
-        root = find_root(dir_map, inv_map, doc_id)
-        preprocessed_sbom_data.append((dir_map, inv_map, root))
-    root_ids = list(zip(*preprocessed_sbom_data))[2]
-
-    envelopes = []
-    for _map, _inv_map, root_id in preprocessed_sbom_data:
-        envelope = next((r for r, c in _map.items() if _inv_map.get(r) == root_id), None)
-        envelopes.append(envelope)
-
-    merged_relationships = []
-
     def process_relation(
         rel: SPDXRelation,
         root_main: Optional[str],
@@ -173,7 +130,46 @@ def merge_relationships(sboms_to_merge) -> Tuple[List[SPDXRelation], List[SPDXPa
         if new_rel.spdxElementId == envelope_other:
             new_rel.spdxElementId = envelope_main
         if new_rel.spdxElementId in package_ids or new_rel.relatedSpdxElement in package_ids:
-            merged_relationships.append(new_rel)
+            return [new_rel]
+        else:
+            return []
+
+    def create_direct_and_inverse_relationshipos_maps(
+        relationships: List[SPDXRelation],
+    ) -> Tuple[Optional[str], Dict[str, List[str]], Dict[str, str]]:
+        direct_map: Dict[str, List[str]] = defaultdict(list)
+        inverse_map: Dict[str, str] = {}
+
+        for rel in relationships:
+            spdx_id, related_spdx = rel.spdxElementId, rel.relatedSpdxElement
+            direct_map[spdx_id].append(related_spdx)
+            inverse_map[related_spdx] = spdx_id
+        return direct_map, inverse_map
+
+    def find_root_package_id(direct_map, inverse_map, doc_id=None):
+        # A root is either an element that no other element is related to
+        # or a document id as a fallback:
+        return next((spdx_id for spdx_id in direct_map if spdx_id not in inverse_map), doc_id)
+
+    # None of these entities are actually used outside of the function.
+    # It is safe to mutate them.
+    doc_ids: List[str] = [s.SPDXID for s in sboms_to_merge]
+    _packages = list(chain.from_iterable(s.packages for s in sboms_to_merge))
+    relationships_list = [s.relationships for s in sboms_to_merge]
+
+    package_ids = {pkg.SPDXID for pkg in _packages}
+    # this is a terrible name, but I don't want to overspend on it ATM.
+    preprocessed_sbom_data = []
+    for relationships, doc_id in zip(relationships_list, doc_ids):
+        dir_map, inv_map = create_direct_and_inverse_relationshipos_maps(relationships)
+        root_id = find_root_package_id(dir_map, inv_map, doc_id)
+        preprocessed_sbom_data.append((dir_map, inv_map, root_id))
+    root_ids = list(zip(*preprocessed_sbom_data))[2]
+
+    envelopes = []
+    for _map, _inv_map, root_id in preprocessed_sbom_data:
+        envelope = next((r for r, _ in _map.items() if _inv_map.get(r) == root_id), None)
+        envelopes.append(envelope)
 
     envelope_main = next((e for e in envelopes if e is not None), None)
     if envelope_main is None:
@@ -184,25 +180,24 @@ def merge_relationships(sboms_to_merge) -> Tuple[List[SPDXRelation], List[SPDXPa
             )
         )
         envelope_main = "SPDXRef-DocumentRoot-File-"
-    merged_relationships.append(
+    merged_relationships = [
         SPDXRelation(
             spdxElementId=root_ids[0],
             relatedSpdxElement="SPDXRef-DocumentRoot-File-",
             relationshipType="DESCRIBES",
         )
-    )
-
+    ]
     root_main = root_ids[0]
 
     for relationships, root_id, envelope in zip(relationships_list, root_ids, envelopes):
         for rel in relationships:
-            process_relation(rel, root_main, root_id, envelope_main, envelope)
+            merged_relationships += process_relation(rel, root_main, root_id, envelope_main, envelope)
 
-    # Filter envelope packages. TODO: make this a function
+    envelopes.pop(envelopes.index(envelope_main))
+    # Filter envelope packages. TODO: make this into a function
     for envelope in envelopes:
-        if envelope == envelope_main:
-            continue
         envelope_package = next((p for p in _packages if p.SPDXID == envelope), None)
         if envelope_package is not None:
             _packages.pop(_packages.index(envelope_package))
+
     return merged_relationships, _packages
