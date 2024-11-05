@@ -165,6 +165,7 @@ def merge_relationships(sboms_to_merge) -> Tuple[List[SPDXRelation], List[SPDXPa
         root_id = find_root_package_id(dir_map, inv_map, doc_id)
         preprocessed_sbom_data.append((dir_map, inv_map, root_id))
     root_ids = list(zip(*preprocessed_sbom_data))[2]
+    root_main = root_ids[0]
 
     envelopes = []
     for _map, _inv_map, root_id in preprocessed_sbom_data:
@@ -182,12 +183,11 @@ def merge_relationships(sboms_to_merge) -> Tuple[List[SPDXRelation], List[SPDXPa
         envelope_main = "SPDXRef-DocumentRoot-File-"
     merged_relationships = [
         SPDXRelation(
-            spdxElementId=root_ids[0],
+            spdxElementId=root_main,
             relatedSpdxElement="SPDXRef-DocumentRoot-File-",
             relationshipType="DESCRIBES",
         )
     ]
-    root_main = root_ids[0]
 
     for relationships, root_id, envelope in zip(relationships_list, root_ids, envelopes):
         for rel in relationships:
