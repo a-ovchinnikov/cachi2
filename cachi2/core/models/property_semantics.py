@@ -1,3 +1,4 @@
+from itertools import chain
 import functools
 from dataclasses import dataclass, field
 from itertools import groupby
@@ -103,7 +104,14 @@ class PropertySet:
         )
 
 
-def merge_relationships(
+def merge_relationships(sboms_to_merge):
+    root_ids: List[str] = [s.SPDXID for s in sboms_to_merge]
+    packages = list(chain.from_iterable(s.packages for s in sboms_to_merge))
+    return _merge_relationships(
+        [s.relationships for s in sboms_to_merge], root_ids, packages
+    )
+
+def _merge_relationships(
     relationships_list: List[List[SPDXRelation]], doc_ids: List[str], packages: List[SPDXPackage]
 ) -> Tuple[List[SPDXRelation], List[SPDXPackage]]:
     """Merge SPDX relationships.

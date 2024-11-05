@@ -476,9 +476,10 @@ def merge_sboms(
             packages=packages,
         )
         root_ids: List[str] = [s.SPDXID for s in spdx_sboms_to_merge]
-        sbom.relationships, sbom.packages = merge_relationships(
-            [s.relationships for s in spdx_sboms_to_merge], root_ids, sbom.packages
-        )
+        sbom.relationships, sbom.packages = merge_relationships(spdx_sboms_to_merge)
+        # sbom.relationships, sbom.packages = merge_relationships(
+        #     [s.relationships for s in spdx_sboms_to_merge], root_ids, sbom.packages
+        # )
 
     sbom_json = sbom.model_dump_json(indent=2, by_alias=True, exclude_none=True)
 
