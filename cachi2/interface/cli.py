@@ -466,20 +466,15 @@ def merge_sboms(
             else:
                 spdx_sboms_to_merge.append(_sbom)
 
-        packages = chain.from_iterable(cast(SPDXSbom, s).packages for s in spdx_sboms_to_merge)
         sbom = SPDXSbom(
             spdxVersion="SPDX-2.3",
             SPDXID="SPDXRef-DOCUMENT",
             dataLicense="CC0-1.0",
             name=sbom_name or cast(SPDXSbom, spdx_sboms_to_merge[0]).name,
             creationInfo=cast(SPDXSbom, spdx_sboms_to_merge[0]).creationInfo,
-            packages=packages,
+            packages=[],
         )
-        root_ids: List[str] = [s.SPDXID for s in spdx_sboms_to_merge]
         sbom.relationships, sbom.packages = merge_relationships(spdx_sboms_to_merge)
-        # sbom.relationships, sbom.packages = merge_relationships(
-        #     [s.relationships for s in spdx_sboms_to_merge], root_ids, sbom.packages
-        # )
 
     sbom_json = sbom.model_dump_json(indent=2, by_alias=True, exclude_none=True)
 

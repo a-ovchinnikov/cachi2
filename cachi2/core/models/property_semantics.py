@@ -1,5 +1,6 @@
 from itertools import chain
 import functools
+from collections import defaultdict
 from dataclasses import dataclass, field
 from itertools import groupby
 from typing import TYPE_CHECKING, Dict, Iterable, List, Optional, Tuple
@@ -116,39 +117,40 @@ def merge_relationships(sboms_to_merge) -> Tuple[List[SPDXRelation], List[SPDXPa
     packages are searched in the relationships and their ID is stored as middle element.
     """
 
+    # None of these entities are actually used outside of the function.
+    # It is safe to mutate them.
     doc_ids: List[str] = [s.SPDXID for s in sboms_to_merge]
-    packages = list(chain.from_iterable(s.packages for s in sboms_to_merge))
+    _packages = list(chain.from_iterable(s.packages for s in sboms_to_merge))
     relationships_list = [s.relationships for s in sboms_to_merge]
 
     def create_direct_and_inverse_relationshipos_maps(
         relationships: List[SPDXRelation],
     ) -> Tuple[Optional[str], Dict[str, List[str]], Dict[str, str]]:
-        relations_map: Dict[str, List[str]] = {}
+        direct_map: Dict[str, List[str]] = defaultdict(list)
         inverse_map: Dict[str, str] = {}
 
         for rel in relationships:
             spdx_id, related_spdx = rel.spdxElementId, rel.relatedSpdxElement
-            relations_map.setdefault(spdx_id, []).append(related_spdx)
+            direct_map[spdx_id].append(related_spdx)
             inverse_map[related_spdx] = spdx_id
-        return relations_map, inverse_map
+        return direct_map, inverse_map
 
     def find_root(direct_map, inverse_map, doc_id=None):
-        return next((k for k in direct_map if k not in inverse_map), doc_id)
+        # A root is either an element that no other element is related to
+        # or a document id as a fallback:
+        return next((spdx_id for spdx_id in direct_map if spdx_id not in inverse_map), doc_id)
 
-    package_ids = {pkg.SPDXID for pkg in packages}
-    _packages = packages[:]
-    root_ids = []
-    maps = []
-    inv_maps = []
-    envelopes = []
+    package_ids = {pkg.SPDXID for pkg in _packages}
+    # this is a terrible name, but I don't want to overspend on it ATM.
+    preprocessed_sbom_data = []
     for relationships, doc_id in zip(relationships_list, doc_ids):
         dir_map, inv_map = create_direct_and_inverse_relationshipos_maps(relationships)
         root = find_root(dir_map, inv_map, doc_id)
-        maps.append(dir_map)
-        inv_maps.append(inv_map)
-        root_ids.append(root)
+        preprocessed_sbom_data.append((dir_map, inv_map, root))
+    root_ids = list(zip(*preprocessed_sbom_data))[2]
 
-    for _map, _inv_map, root_id in zip(maps, inv_maps, root_ids):
+    envelopes = []
+    for _map, _inv_map, root_id in preprocessed_sbom_data:
         envelope = next((r for r, c in _map.items() if _inv_map.get(r) == root_id), None)
         envelopes.append(envelope)
 
