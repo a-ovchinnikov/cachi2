@@ -151,6 +151,31 @@ def merge_relationships(sboms_to_merge) -> Tuple[List[SPDXRelation], List[SPDXPa
         # or a document id as a fallback:
         return next((spdx_id for spdx_id in direct_map if spdx_id not in inverse_map), doc_id)
 
+    def generate_root_relationship(root_main):
+        return SPDXRelation(
+            spdxElementId=root_main,
+            relatedSpdxElement="SPDXRef-DocumentRoot-File-",
+            relationshipType="DESCRIBES",
+        )
+
+    def extract_envelopes():
+        out = []
+        # This is an inner function and it does _not_ modify preprocessed_sbom_data,
+        # thus it is somewhat fine to refer to it directly.
+        for dir_map, _inv_map, root_id in preprocessed_sbom_data:
+            envelope = next(
+                (spdx_id for spdx_id in dir_map.keys() if _inv_map.get(spdx_id) == root_id), None)
+            out.append(envelope)
+        return out
+
+    def remove_envelope_packages(_packages, envelopes):
+        """Removes extra envelope packages inherited from non-main SBOMs."""
+        # Warning! This helper mutates _packages in place for efficiency reasons!
+        for envelope in envelopes:
+            envelope_package = next((p for p in _packages if p.SPDXID == envelope), None)
+            if envelope_package is not None:
+                _packages.pop(_packages.index(envelope_package))
+
     # None of these entities are actually used outside of the function.
     # It is safe to mutate them.
     doc_ids: List[str] = [s.SPDXID for s in sboms_to_merge]
@@ -164,14 +189,11 @@ def merge_relationships(sboms_to_merge) -> Tuple[List[SPDXRelation], List[SPDXPa
         dir_map, inv_map = create_direct_and_inverse_relationshipos_maps(relationships)
         root_id = find_root_package_id(dir_map, inv_map, doc_id)
         preprocessed_sbom_data.append((dir_map, inv_map, root_id))
+
     root_ids = list(zip(*preprocessed_sbom_data))[2]
     root_main = root_ids[0]
 
-    envelopes = []
-    for _map, _inv_map, root_id in preprocessed_sbom_data:
-        envelope = next((r for r, _ in _map.items() if _inv_map.get(r) == root_id), None)
-        envelopes.append(envelope)
-
+    envelopes = extract_envelopes()
     envelope_main = next((e for e in envelopes if e is not None), None)
     if envelope_main is None:
         _packages.append(
@@ -181,23 +203,14 @@ def merge_relationships(sboms_to_merge) -> Tuple[List[SPDXRelation], List[SPDXPa
             )
         )
         envelope_main = "SPDXRef-DocumentRoot-File-"
-    merged_relationships = [
-        SPDXRelation(
-            spdxElementId=root_main,
-            relatedSpdxElement="SPDXRef-DocumentRoot-File-",
-            relationshipType="DESCRIBES",
-        )
-    ]
 
+    merged_relationships = [generate_root_relationship(root_main)]
     for relationships, root_id, envelope in zip(relationships_list, root_ids, envelopes):
         for rel in relationships:
             merged_relationships += process_relation(rel, root_main, root_id, envelope_main, envelope)
 
+    # It is safe to tweak envelopes now
     envelopes.pop(envelopes.index(envelope_main))
-    # Filter envelope packages. TODO: make this into a function
-    for envelope in envelopes:
-        envelope_package = next((p for p in _packages if p.SPDXID == envelope), None)
-        if envelope_package is not None:
-            _packages.pop(_packages.index(envelope_package))
+    remove_envelope_packages(_packages, envelopes)
 
     return merged_relationships, _packages
