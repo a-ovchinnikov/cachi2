@@ -175,8 +175,8 @@ def merge_relationships(sboms_to_merge) -> Tuple[List[SPDXRelation], List[SPDXPa
         if new_rel.spdxElementId in package_ids or new_rel.relatedSpdxElement in package_ids:
             merged_relationships.append(new_rel)
 
-    envelope_main = envelopes[0]
-    if not envelope_main:
+    envelope_main = next((e for e in envelopes if e is not None), None)
+    if envelope_main is None:
         _packages.append(
             SPDXPackage(
                 SPDXID="SPDXRef-DocumentRoot-File-",
@@ -198,11 +198,11 @@ def merge_relationships(sboms_to_merge) -> Tuple[List[SPDXRelation], List[SPDXPa
         for rel in relationships:
             process_relation(rel, root_main, root_id, envelope_main, envelope)
 
-    for envelope in envelopes[1:]:
-        envelope_packages: List[Optional[SPDXPackage]] = [
-            x for x in _packages if x.SPDXID == envelope
-        ]
-        envelope_package: Optional[SPDXPackage] = (envelope_packages or [None])[0]
-        if envelope_package:
+    # Filter envelope packages. TODO: make this a function
+    for envelope in envelopes:
+        if envelope == envelope_main:
+            continue
+        envelope_package = next((p for p in _packages if p.SPDXID == envelope), None)
+        if envelope_package is not None:
             _packages.pop(_packages.index(envelope_package))
     return merged_relationships, _packages
