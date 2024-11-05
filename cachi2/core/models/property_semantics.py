@@ -104,16 +104,10 @@ class PropertySet:
         )
 
 
-def merge_relationships(sboms_to_merge):
-    root_ids: List[str] = [s.SPDXID for s in sboms_to_merge]
-    packages = list(chain.from_iterable(s.packages for s in sboms_to_merge))
-    return _merge_relationships(
-        [s.relationships for s in sboms_to_merge], root_ids, packages
-    )
+def merge_two_relationships(rel1, rel2):
+    pass
 
-def _merge_relationships(
-    relationships_list: List[List[SPDXRelation]], doc_ids: List[str], packages: List[SPDXPackage]
-) -> Tuple[List[SPDXRelation], List[SPDXPackage]]:
+def merge_relationships(sboms_to_merge) -> Tuple[List[SPDXRelation], List[SPDXPackage]]:
     """Merge SPDX relationships.
 
     Function takes relationships lists and unified list of packages.
@@ -121,6 +115,10 @@ def _merge_relationships(
     contains virtual package which serves as "envelope" for all real packages. These virtual
     packages are searched in the relationships and their ID is stored as middle element.
     """
+
+    doc_ids: List[str] = [s.SPDXID for s in sboms_to_merge]
+    packages = list(chain.from_iterable(s.packages for s in sboms_to_merge))
+    relationships_list = [s.relationships for s in sboms_to_merge]
 
     def map_relationships(
         relationships: List[SPDXRelation],
@@ -133,8 +131,10 @@ def _merge_relationships(
             relations_map.setdefault(spdx_id, []).append(related_spdx)
             inverse_map[related_spdx] = spdx_id
 
-        root_element = next((k for k in relations_map if k not in inverse_map), None)
-        return root_element, relations_map, inverse_map
+        return relations_map, inverse_map
+
+    def find_root(direct_map, inverse_map):
+        return  next((k for k in direct_map if k not in inverse_map), None)
 
     package_ids = {pkg.SPDXID for pkg in packages}
     _packages = packages[:]
@@ -143,7 +143,8 @@ def _merge_relationships(
     inv_maps = []
     envelopes = []
     for relationships, doc_id in zip(relationships_list, doc_ids):
-        root, _map, inv_map = map_relationships(relationships)
+        _map, inv_map = map_relationships(relationships)
+        root = find_root(_map, inv_map)
         maps.append(_map)
         inv_maps.append(inv_map)
         if not root:
