@@ -1,7 +1,4 @@
 FROM registry.access.redhat.com/ubi9/ubi@sha256:a1804302f6f53e04cc1c6b20bc2204d5c9ae6e5a664174b38fbeeb30f7983d4e as ubi
-FROM docker.io/library/golang:1.20.0-bullseye as golang_120
-FROM docker.io/library/golang:1.21.0-bullseye as golang_121
-FROM docker.io/library/node:23.11.0-bullseye as node
 
 ########################
 # PREPARE OUR BASE IMAGE
@@ -43,6 +40,20 @@ RUN python3 -m venv /venv && \
 COPY . .
 RUN /venv/bin/pip install --no-cache-dir .
 
+######################################
+# PREPARE PREFETCHED GENERIC ARTIFACTS
+######################################
+FROM ubi as artifacts
+
+RUN mkdir /artifacts && \
+    cd /artifacts && \
+    mkdir go1.20 go1.21 nodejs && \
+    # Assume that the Hermeto prefetched content will be mounted to /tmp/output
+    tar -xzf /tmp/output/deps/generic/go1.20.linux-amd64.tar.gz -C ./go1.20 && \
+    tar -xzf /tmp/output/deps/generic/go1.21.0.linux-amd64.tar.gz -C ./go1.21 && \
+    # Use --strip-components to change the default nodejs-{version}-{os}-{arch} naming schema
+    tar -xzf /tmp/output/deps/generic/nodejs.tar.gz -C ./nodejs --strip-components 1
+
 ##########################
 # ASSEMBLE THE FINAL IMAGE
 ##########################
@@ -50,10 +61,10 @@ FROM base
 LABEL maintainer="Red Hat"
 
 # copy Go SDKs and Node.js installation from official images
-COPY --from=golang_120 /usr/local/go /usr/local/go/go1.20
-COPY --from=golang_121 /usr/local/go /usr/local/go/go1.21
-COPY --from=node /usr/local/lib/node_modules/corepack /usr/local/lib/corepack
-COPY --from=node /usr/local/bin/node /usr/local/bin/node
+COPY --from=artifacts /artifacts/go1.20/go/bin/go /usr/local/go/go1.20
+COPY --from=artifacts /artifacts/go1.21/go/bin/go /usr/local/go/go1.21
+COPY --from=artifacts /artifacts/nodejs/lib/node_modules/corepack/dist/corepack.js /usr/local/lib/corepack
+COPY --from=artifacts /artifacts/nodejs/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/node
 COPY --from=builder /usr/bin/cargo /usr/bin/cargo
 COPY --from=builder /venv /venv
 
