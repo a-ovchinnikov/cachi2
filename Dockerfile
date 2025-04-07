@@ -66,6 +66,7 @@ COPY --from=artifacts /artifacts/go1.21/go/bin/go /usr/local/go/go1.21
 COPY --from=artifacts /artifacts/nodejs/lib/node_modules/corepack/dist/corepack.js /usr/local/lib/corepack
 COPY --from=artifacts /artifacts/nodejs/lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/node
 COPY --from=builder /usr/bin/cargo /usr/bin/cargo
+COPY --from=builder /usr/bin/rustc /usr/bin/rustc
 COPY --from=builder /venv /venv
 
 # link corepack, yarn, and go to standard PATH location
