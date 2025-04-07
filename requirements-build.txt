@@ -132,3 +132,10 @@ setuptools==78.1.0
     #   trove-classifiers
     #   types-psutil
     #   yarl
+tomli==2.0.2
+    # manually added
+importlib-metadata==3.6.0
+    # manually added
+zipp==0.5
+    # manually added
+
