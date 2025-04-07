@@ -33,12 +33,11 @@ RUN dnf -y install \
 
 # Install dependencies in a separate layer to maximize layer caching
 COPY requirements.txt .
-RUN python3 -m venv /venv && \
-    /venv/bin/pip install --upgrade pip && \
-    /venv/bin/pip install -r requirements.txt --no-deps --no-cache-dir --require-hashes
+
+RUN pip3 install -r requirements.txt --no-deps --no-cache-dir --require-hashes
 
 COPY . .
-RUN /venv/bin/pip install --no-cache-dir .
+RUN pip3 install install --no-cache-dir .
 
 ######################################
 # PREPARE PREFETCHED GENERIC ARTIFACTS
