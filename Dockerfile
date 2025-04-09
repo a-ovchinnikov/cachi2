@@ -29,6 +29,15 @@ RUN dnf -y install \
     python3-devel \
     python3-pip \
     python3-setuptools \
+    cmake \
+    bzip2-devel \
+    glib2-devel \
+    libcurl-devel \
+    libxml2-devel \
+    openssl-devel \
+    sqlite-devel \
+    xz-devel \
+    zlib-devel \
     && dnf clean all
 
 # Install dependencies in a separate layer to maximize layer caching

@@ -13,3 +13,13 @@ packages:
   - rubygem-bundler
   - rubygem-json
   - subscription-manager
+  - cmake
+  - bzip2-devel
+  - glib2-devel
+  - libcurl-devel
+  - libxml2-devel
+  - openssl-devel
+  - sqlite-devel
+  - xz-devel
+  - zlib-devel
+
