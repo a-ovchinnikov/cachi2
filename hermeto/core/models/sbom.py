@@ -382,6 +382,10 @@ class SPDXPackage(pydantic.BaseModel):
     externalRefs: list[SPDXPackageExternalRefType] = []
     annotations: list[SPDXPackageAnnotation] = []
     downloadLocation: str = "NOASSERTION"
+    # PackageSourceInfo should be present if proxy URL were set for a package
+    # manager. If more than one URL were provided then individual URLs
+    # should be separated with semicolons.
+    packageSourceInfo: str | None = None
 
     def __lt__(self, other: "SPDXPackage") -> bool:
         return (self.SPDXID or "") < (other.SPDXID or "")
@@ -394,6 +398,14 @@ class SPDXPackage(pydantic.BaseModel):
             + hash(self.downloadLocation)
             + sum(hash(e) for e in self.externalRefs)
             + sum(hash(a) for a in self.annotations)
+            # NOTE: this is problematic since in a rare case when there are
+            # several proxies and a package was downloaded from one proxy and
+            # then from another one in some other context they will be hashed
+            # to the same value and deduplicated. There is a slim chance that
+            # they won't actually be identical. Since we do not have a way to
+            # distinguish between multiple proxies and since this chance is
+            # very small this is something we would need to live with.
+            + hash(self.packageSourceInfo)
         )
 
     @staticmethod
@@ -420,6 +432,7 @@ class SPDXPackage(pydantic.BaseModel):
         """Create a SPDXPackage from our dictionary."""
         external_refs = package.get("externalRefs", [])
         annotations = [SPDXPackageAnnotation(**an) for an in package.get("annotations", [])]
+        packageSourceInfo = package.get("packageSourceInfo", None)
         if package.get("SPDXID") is None:
             purls = sorted(
                 [
@@ -446,6 +459,7 @@ class SPDXPackage(pydantic.BaseModel):
             versionInfo=package.get("versionInfo", None),
             externalRefs=external_refs,
             annotations=annotations,
+            packageSourceInfo=packageSourceInfo,
         )
 
 
