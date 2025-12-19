@@ -22,6 +22,9 @@ from hermeto.core.utils import first_for
 log = logging.getLogger(__name__)
 
 
+SRCDIST = "source-distribution"
+
+
 class ExternalReference(pydantic.BaseModel):
     """An ExternalReference inside an SBOM component."""
 
@@ -32,6 +35,8 @@ class ExternalReference(pydantic.BaseModel):
     # ExternalReferences. This type of ExternalReference should be added
     # along with "distribution" ExternalReference.
     # NOTE: CycloneDX.ExternalReference != SPDX.ExternalReference!
+    # mypy complains about the usage of SRCDIST here, so a manual expansion is
+    # used instead to make it happy.
     type: Literal["distribution", "source-distribution"] = "distribution"
 
 
@@ -204,6 +209,11 @@ class Sbom(pydantic.BaseModel):
             return relationships
 
         def libs_to_packages(libraries: list[Component]) -> list[SPDXPackage]:
+            def source_infos(component: Component) -> list[str]:
+                if component.external_references is None:
+                    return []
+                return [er.url for er in component.external_references if er.type == SRCDIST]
+
             packages, annottr, now = [], f"Tool: {APP_NAME}:jsonencoded", spdx_now()
             args = dict(annotator=annottr, annotationDate=now, annotationType="OTHER")
             pAnnotation = partial(SPDXPackageAnnotation, **args)
@@ -221,6 +231,8 @@ class Sbom(pydantic.BaseModel):
                 else:
                     human_readable_id = component.name
 
+                # fmt: off
+                # (because ruff would make a perfectly legal technique look unreadable otherwise)
                 packages.append(
                     SPDXPackage(
                         SPDXID=sanitize_spdxid(
@@ -230,8 +242,10 @@ class Sbom(pydantic.BaseModel):
                         versionInfo=component.version,
                         externalRefs=[erefdict(component)],
                         annotations=[pAnnotation(comment=mkcomm(p)) for p in component.properties],
+                        packageSourceInfo=None if not (l:=source_infos(component)) else ";".join(l)  # noqa: E741
                     )
                 )
+                # fmt: on
             return packages
 
         # Main function body.
@@ -661,8 +675,17 @@ class SPDXSbom(pydantic.BaseModel):
                 )
                 for an in package.annotations
             ]
+            if package.packageSourceInfo is not None:
+                actual_download_urls = package.packageSourceInfo.split(";")
+                ers = [ExternalReference(url=s, type=SRCDIST) for s in actual_download_urls]
+            else:
+                ers = None
             pComponent = partial(
-                Component, name=package.name, version=package.versionInfo, properties=properties
+                Component,
+                name=package.name,
+                version=package.versionInfo,
+                properties=properties,
+                external_references=ers,
             )
             purls = _extract_purls(package.externalRefs)
 
