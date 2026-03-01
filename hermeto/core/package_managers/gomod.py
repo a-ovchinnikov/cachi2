@@ -516,7 +516,8 @@ class GoWork(UserDict):
         wp_paths = [p["disk_path"] for p in self["use"]]
 
         # Make sure the workspace paths don't point outside our rooted path
-        return [(self.path.parent / wp).resolve() for wp in wp_paths if _dir.join_within_root(wp)]
+        is_within_root = lambda wp: _dir.join_within_root(wp) is not None
+        return [(self.path.parent / wp).resolve() for wp in wp_paths if is_within_root(wp)]
 
 
 ModuleID = tuple[str, str]
