@@ -185,7 +185,7 @@ def main(  # noqa: D103 docstring becomes part of --help message
     ),
 ) -> None:
     setup_logging(log_level)
-    if config_file:
+    if config_file is not None:
         config.set_config(config_file)
 
 
