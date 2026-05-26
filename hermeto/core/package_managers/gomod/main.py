@@ -4,11 +4,13 @@ import os
 import re
 import shutil
 import tempfile
+import urllib
 from collections.abc import Iterable, Iterator
 from datetime import datetime, timezone
 from functools import cached_property
 from itertools import chain
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import TracebackType
 from typing import TYPE_CHECKING, Any, Literal, NamedTuple, NoReturn, Optional
 
@@ -26,6 +28,7 @@ from hermeto.core.config import get_config
 from hermeto.core.errors import (
     FetchError,
     GitError,
+    InvalidInput,
     LockfileNotFound,
     NotAGitRepo,
     PackageManagerError,
@@ -218,6 +221,7 @@ class Package(NamedTuple):
             name=self.name,
             version=self.module.version,
             purl=self.purl,
+            external_references=self.module.to_component().external_references,
         )
 
 
@@ -250,6 +254,8 @@ class StandardPackage(NamedTuple):
 
     def to_component(self) -> Component:
         """Create a SBOM component for this package."""
+        # Note, these components come from the standard lib, they lack version, they
+        # are not collected from a repository and are not present in the output directory.
         return Component(name=self.name, purl=self.purl)
 
 
@@ -768,6 +774,21 @@ def _resolve_gomod(
     if config.gomod.proxy_url:
         go_vars["GOPROXY"] = config.gomod.proxy_url
 
+    temp_netrc_dir = TemporaryDirectory()
+    if config.gomod.proxy_login is not None:
+        # This is supposed to be happening only in systems utilizing artifact registry proxies.
+        if "," in config.gomod.proxy_url:
+            raise InvalidInput("Multiple authentication requiring proxy URLs detected!")
+        path_to_netrc = inject_netrc(prepare_netrc_contents(), Path(temp_netrc_dir.name))
+        go_vars["NETRC"] = str(path_to_netrc)
+        if os.environ.get("NETRC", ""):
+            log.warning(
+                "Proxy login was specified, at the same time a custom .netrc file path was"
+                " provided via environment. A new .netrc will be generated from proxy"
+                " parameters and will shadow the environment one. Please disable proxy"
+                " support if you intend to use the .netrc from environment."
+            )
+
     if "cgo-disable" in request.flags:
         go_vars["CGO_ENABLED"] = "0"
 
@@ -805,6 +826,7 @@ def _resolve_gomod(
     log.info("Retrieving the list of packages")
     all_packages = _parse_packages(go_work, go, run_params)
 
+    temp_netrc_dir.cleanup()
     return ResolvedGoModule(main_module, all_modules, all_packages, modules_in_go_sum)
 
 
@@ -1448,3 +1470,26 @@ def _vendor_changed(context_dir: RootedPath) -> bool:
         repo.git.reset("--", context_relative_path)
 
     return False
+
+
+def prepare_netrc_contents() -> str:
+    """Prepare .netrc contents."""
+    config = get_config()
+    # It should be `machine foo.bar.baz` in netrc, but is
+    # set to https://foo.bar.baz/repository/go-proxy/ via a variable.
+    # Another thing to note: go mod allows specifying multiple proxy URLs by
+    # separating them with commas. This routine, however, is supposed to be
+    # used in an artifact registry proxy path. Such a proxy should exist as a
+    # uniquely addressable entity, having any backups here would jeopardize
+    # fetch integrity.
+    machine = urllib.parse.urlparse(config.gomod.proxy_url).netloc
+    return f"""machine {machine}
+        login {config.gomod.proxy_login}
+        password {config.gomod.proxy_password}"""
+
+
+def inject_netrc(netrc_stuff: str, temp_netrc_dir: Path) -> str:
+    """Inject a temporary .netrc."""
+    netrc = temp_netrc_dir / ".netrc"
+    netrc.write_text(netrc_stuff)
+    return str(netrc)
