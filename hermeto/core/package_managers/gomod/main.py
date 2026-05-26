@@ -728,6 +728,79 @@ def _parse_packages(
     return iter(all_packages)
 
 
+def _determine_cache_path(should_vendor: bool, tmp_dir: Path) -> str:
+    if should_vendor:
+        # Even though we do not perform a "go mod download" when vendoring is detected, some
+        # go commands still download dependencies as a side effect. Since we don't want those
+        # copied to the output dir, we need to set the GOMODCACHE to a different directory.
+        return f"{tmp_dir}/vendor-cache"
+    return f"{tmp_dir}/pkg/mod"
+
+
+def _prepare_run_params(
+    request_flags: Iterable,
+    should_vendor: bool,
+    tmp_dir: Path,
+    app_dir: RootedPath,
+    temp_netrc_dir: Path,
+) -> dict:
+    config = get_config()
+    gomod_cache = _determine_cache_path(should_vendor, tmp_dir)
+
+    go_vars: dict[str, str] = {
+        "GOPATH": str(tmp_dir),
+        "GO111MODULE": "on",
+        "GOCACHE": str(tmp_dir),
+        "GOMODCACHE": gomod_cache,
+        "GOSUMDB": "sum.golang.org",
+        "GOTOOLCHAIN": "auto",
+    }
+    if config.gomod.proxy_url:
+        go_vars["GOPROXY"] = config.gomod.proxy_url
+
+    if config.gomod.proxy_login is not None:
+        # This is supposed to be happening only in systems utilizing artifact registry proxies.
+        if "," in config.gomod.proxy_url:
+            raise InvalidInput("Multiple authentication requiring proxy URLs detected!")
+        path_to_netrc = inject_netrc(prepare_netrc_contents(), temp_netrc_dir)
+        go_vars["NETRC"] = str(path_to_netrc)
+        if os.environ.get("NETRC", ""):
+            log.warning(
+                "Proxy login was specified, at the same time a custom .netrc file path was"
+                " provided via environment. A new .netrc will be generated from proxy"
+                " parameters and will shadow the environment one. Please disable proxy"
+                " support if you intend to use the .netrc from environment."
+            )
+
+    if "cgo-disable" in request_flags:
+        go_vars["CGO_ENABLED"] = "0"
+
+    env = _go_exec_env(**go_vars)
+    run_params = {"env": env, "cwd": app_dir}
+
+    return run_params
+
+
+def _determine_which_modules_go_in_go_sum(
+    app_dir: RootedPath,
+    go_work: GoWork | None,
+) -> frozenset[ModuleID]:
+    if go_work:
+        return _parse_go_sum_from_workspaces(go_work)
+    return _parse_go_sum(app_dir.join_within_root("go.sum"))
+
+
+def _acquire_modules(
+    should_vendor: bool, go: Go, app_dir: RootedPath, go_work: GoWork | None, run_params: dict
+) -> Iterable[ParsedModule]:
+    # Vendor dependencies if the gomod-vendor flag is set
+    if should_vendor:
+        return _vendor_deps(go, app_dir, bool(go_work), run_params)
+    log.info("Downloading the gomod dependencies")
+    json_stream = go(["mod", "download", "-json"], run_params, retry=True)
+    return (ParsedModule.model_validate(obj) for obj in load_json_stream(json_stream))
+
+
 def _resolve_gomod(
     app_dir: RootedPath,
     request: Request,
@@ -750,68 +823,17 @@ def _resolve_gomod(
     :raises PackageManagerError: if fetching dependencies fails
     """
     _protect_against_symlinks(app_dir)
-
-    config = get_config()
-
     should_vendor = app_dir.join_within_root("vendor").path.is_dir()
 
-    if should_vendor:
-        # Even though we do not perform a "go mod download" when vendoring is detected, some
-        # go commands still download dependencies as a side effect. Since we don't want those
-        # copied to the output dir, we need to set the GOMODCACHE to a different directory.
-        gomod_cache = f"{tmp_dir}/vendor-cache"
-    else:
-        gomod_cache = f"{tmp_dir}/pkg/mod"
-
-    go_vars: dict[str, str] = {
-        "GOPATH": str(tmp_dir),
-        "GO111MODULE": "on",
-        "GOCACHE": str(tmp_dir),
-        "GOMODCACHE": gomod_cache,
-        "GOSUMDB": "sum.golang.org",
-        "GOTOOLCHAIN": "auto",
-    }
-    if config.gomod.proxy_url:
-        go_vars["GOPROXY"] = config.gomod.proxy_url
-
-    temp_netrc_dir = TemporaryDirectory()
-    if config.gomod.proxy_login is not None:
-        # This is supposed to be happening only in systems utilizing artifact registry proxies.
-        if "," in config.gomod.proxy_url:
-            raise InvalidInput("Multiple authentication requiring proxy URLs detected!")
-        path_to_netrc = inject_netrc(prepare_netrc_contents(), Path(temp_netrc_dir.name))
-        go_vars["NETRC"] = str(path_to_netrc)
-        if os.environ.get("NETRC", ""):
-            log.warning(
-                "Proxy login was specified, at the same time a custom .netrc file path was"
-                " provided via environment. A new .netrc will be generated from proxy"
-                " parameters and will shadow the environment one. Please disable proxy"
-                " support if you intend to use the .netrc from environment."
-            )
-
-    if "cgo-disable" in request.flags:
-        go_vars["CGO_ENABLED"] = "0"
-
-    env = _go_exec_env(**go_vars)
-    run_params = {"env": env, "cwd": app_dir}
-
-    # Explicitly disable toolchain telemetry for go >= 1.23
-    _disable_telemetry(go, run_params)
-
-    if go_work:
-        modules_in_go_sum = _parse_go_sum_from_workspaces(go_work)
-    else:
-        modules_in_go_sum = _parse_go_sum(app_dir.join_within_root("go.sum"))
-
-    # Vendor dependencies if the gomod-vendor flag is set
-    if should_vendor:
-        downloaded_modules = _vendor_deps(go, app_dir, bool(go_work), run_params)
-    else:
-        log.info("Downloading the gomod dependencies")
-        downloaded_modules = (
-            ParsedModule.model_validate(obj)
-            for obj in load_json_stream(go(["mod", "download", "-json"], run_params, retry=True))
+    with TemporaryDirectory() as temp_netrc_dir:
+        run_params = _prepare_run_params(
+            request.flags, should_vendor, tmp_dir, app_dir, Path(temp_netrc_dir)
         )
+
+        # Explicitly disable toolchain telemetry for go >= 1.23
+        _disable_telemetry(go, run_params)
+        modules_in_go_sum = _determine_which_modules_go_in_go_sum(app_dir, go_work)
+        downloaded_modules = _acquire_modules(should_vendor, go, app_dir, go_work, run_params)
 
     main_module, workspace_modules = _parse_local_modules(
         go_work, go, run_params, app_dir, version_resolver
@@ -826,7 +848,6 @@ def _resolve_gomod(
     log.info("Retrieving the list of packages")
     all_packages = _parse_packages(go_work, go, run_params)
 
-    temp_netrc_dir.cleanup()
     return ResolvedGoModule(main_module, all_modules, all_packages, modules_in_go_sum)
 
 
