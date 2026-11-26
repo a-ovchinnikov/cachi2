@@ -19,7 +19,7 @@
       
       
       <link rel="icon" href="../assets/images/favicon.png">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.0">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.8.2">
     
     
       
@@ -1116,6 +1116,11 @@ tree then the tree has the possibility to become dirty.</em></p>
 Hermeto copies the source tree, including <code>.git</code>, before processing it, and a
 concurrent git operation (including a background <code>git gc</code>) can corrupt that copy
 and produce an inaccurate SBOM.</em></p>
+<div class="admonition warning">
+<p class="admonition-title">Warning</p>
+<p>Any file in the source repository may be a symlink, but it must not point
+outside the source repository. Hermeto may refuse to process input that does.</p>
+</div>
 <h3 id="generate-environment-variables">Generate environment variables<a class="headerlink" href="#generate-environment-variables" title="Permanent link">&para;</a></h3>
 <p>Once the dependencies have been cached, the build process needs to be made aware
 of the dependencies. Some package managers need to be informed of cache
@@ -1297,7 +1302,7 @@ releases, please do NOT depend on them!</p>
       <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["content.action.edit", "content.action.view", "content.code.copy", "content.tooltips", "navigation.sections", "search.share", "search.suggest"], "search": "../assets/javascripts/workers/search.a7633da7.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"alias": true, "default": ["latest"], "provider": "mike"}}</script>
     
     
-      <script src="../assets/javascripts/bundle.c21346df.min.js"></script>
+      <script src="../assets/javascripts/bundle.a5f9d56c.min.js"></script>
       
     
   </body>
